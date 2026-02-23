@@ -48,7 +48,6 @@ def bookRecommendation(liked_book_id, top_k=5):
             "pages": pages
         })
 
-    print(f"Recommended book IDs for book {liked_book_id}: {recommended_books}")
     return recommended_books
 
 # recommended_books=bookRecommendation(68)
