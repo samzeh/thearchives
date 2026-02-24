@@ -71,43 +71,110 @@ def getBookDetails(book_id):
 
     row = books_df[books_df['book_id'] == book_id]
     authors = row['authors'].values[0]
-    average_rating = row['average_rating'].values[0]
+    average_rating = int(row['average_rating'].values[0].item())
     description = row['description'].values[0]
     genres = row['genres'].values[0]
     image_url = row['image_url'].values[0]
-    isbn13 = row['isbn13'].values[0]
-    pages = row['pages'].values[0]
+    isbn13 = int(row['isbn13'].values[0].item())
+    pages = int(row['pages'].values[0].item())
     title = row['title'].values[0]
     return title, authors, average_rating, description, genres, image_url, isbn13, pages
 
 
-def createRecommendationGraph(liked_book_id, depth=3, top_k = 5, nodes=None, links=None, already_recommended=None):
+
+def safe_int(value, default=0):
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return default
+
+def createRecommendationGraph(
+    liked_book_id,
+    depth=3,
+    top_k=5,
+    nodes=None,
+    links=None,
+    already_recommended=None,
+    node_counter=None,
+    book_id_to_node_id=None
+):
     if nodes is None:
         nodes = []
     if links is None:
         links = []
     if already_recommended is None:
         already_recommended = set()
+    if node_counter is None:
+        node_counter = [0]
+    if book_id_to_node_id is None:
+        book_id_to_node_id = {}
 
     if liked_book_id not in already_recommended:
-        nodes.append({"id": 0, "book_id": liked_book_id, "label": getBookDetails(liked_book_id)[0], "authors": getBookDetails(liked_book_id)[1], "average_rating": getBookDetails(liked_book_id)[2], "description": getBookDetails(liked_book_id)[3], "genres": getBookDetails(liked_book_id)[4], "image_url": getBookDetails(liked_book_id)[5], "isbn13": getBookDetails(liked_book_id)[6], "pages": getBookDetails(liked_book_id)[7]})
+        node_id = node_counter[0]
+        node_counter[0] += 1
+
+        title, authors, avg_rating, desc, genres, img, isbn, pages = getBookDetails(liked_book_id)
+        nodes.append({
+            "id": node_id,
+            "book_id": liked_book_id,
+            "label": title,
+            "authors": authors,
+            "average_rating": avg_rating,
+            "description": desc,
+            "genres": genres,
+            "image_url": img,
+            "isbn13": isbn,
+            "pages": pages
+        })
         already_recommended.add(liked_book_id)
+        book_id_to_node_id[liked_book_id] = node_id
 
-    recommended_books = bookRecommendation(liked_book_id, top_k)
+    source_id = book_id_to_node_id[liked_book_id]
 
-    for i, book in enumerate(recommended_books):
-        links.append({"source": liked_book_id, "target": book["book_id"]})
+    recommended_books = bookRecommendation(liked_book_id)
 
-        if book["book_id"] not in already_recommended:
-            nodes.append({"id": i+1, "book_id": book["book_id"], "label": book["title"], "authors": book["authors"], "average_rating": book["average_rating"], "description": book["description"], "genres": book["genres"], "image_url": book["image_url"], "isbn13": book["isbn13"], "pages": book["pages"]})
+    for book in recommended_books:
+        book_id = book["book_id"]
+        is_new = book_id not in already_recommended
 
-        if depth > 1 and book["book_id"] not in already_recommended:
-            createRecommendationGraph(book["book_id"], depth - 1, top_k, nodes, links, already_recommended)
-        already_recommended.add(book["book_id"])
+        # Assign node ID — either new or existing
+        if is_new:
+            target_id = node_counter[0]
+            node_counter[0] += 1
+            nodes.append({
+                "id": target_id,
+                "book_id": book_id,
+                "label": book["title"],
+                "authors": book["authors"],
+                "average_rating": safe_int(book["average_rating"]),
+                "description": book["description"],
+                "genres": book["genres"],
+                "image_url": book["image_url"],
+                "isbn13": safe_int(book["isbn13"]),
+                "pages": safe_int(book["pages"])
+            })
+            already_recommended.add(book_id)
+            book_id_to_node_id[book_id] = target_id
+        else:
+            target_id = book_id_to_node_id[book_id]
+
+        # Always create the link
+        links.append({"source": source_id, "target": target_id})
+
+        # Always recurse — even if node already exists
+        if depth > 1:
+            createRecommendationGraph(
+                book_id,
+                depth - 1,
+                top_k,
+                nodes,
+                links,
+                already_recommended,
+                node_counter,
+                book_id_to_node_id
+            )
 
     return nodes, links
-
-        
 nodes, links = createRecommendationGraph(68)
 print("Nodes:", nodes)
 print("Links:", links)
