@@ -74,13 +74,12 @@ def bookRecommendation(liked_book_id, top_k=5):
 #     print("-", book["title"])
 
 
-
+books_df = pd.read_csv('./data/raw/books.csv')
 
 
 liked_book_id = 68  # "Perks of Being a Wallflower"
 # bookRecommendation(liked_book_id)
 def getBookDetails(book_id):
-    books_df = pd.read_csv('./data/raw/books.csv')
 
     row = books_df[books_df['book_id'] == book_id]
     authors = row['authors'].values[0]
