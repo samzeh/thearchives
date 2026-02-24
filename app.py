@@ -22,21 +22,26 @@ group_text_result = artifacts['group_text_result']
 genre_result = artifacts['genre_result']
 user_rating_similarities = artifacts['user_rating_similarities']
 book_id_list = artifacts['book_id_list']
+# ratings_matrix = artifacts['ratings_matrix']  MAYBE REMOVE FROM HYRBID MODEL
 
-def bookRecommendation(liked_book_id, top_k=5):
+books_df = pd.read_csv('./data/raw/books.csv')
+
+def bookRecommendation(liked_book_id, top_k=5, already_recommended=None):
     liked_index = book_id_list.index(liked_book_id)  
 
     ratings_similarities = user_rating_similarities[liked_index]
     text_similarities = cosine_similarity(group_text_result[liked_index], group_text_result).flatten()
     genre_similarities = cosine_similarity(genre_result[liked_index], genre_result).flatten()
 
-    similarities = 0.5 * ratings_similarities + 0.3 * text_similarities + 0.2 * genre_similarities
+    similarities = 0.3 * ratings_similarities + 0.5 * text_similarities + 0.2 * genre_similarities
+
     similarities[liked_index] = -1  
+
+    for seen_book_id in already_recommended:
+        similarities[book_id_list.index(seen_book_id)] = -1
 
     top_indices = similarities.argsort()[-top_k:][::-1]
     recommended_books = []
-
-    books_df = pd.read_csv('./data/raw/books.csv')
   
     for i in top_indices:
         row = books_df[books_df['book_id'] == i+1]
@@ -53,14 +58,13 @@ def bookRecommendation(liked_book_id, top_k=5):
             "title": title,
             "book_id": book_id_list[i],
             "authors": authors,
-            "average_rating": average_rating,
+            "average_rating": safe_int(average_rating),
             "description": description,
             "genres": genres,
             "image_url": image_url,
-            "isbn13": isbn13,
-            "pages": pages
+            "isbn13": safe_int(isbn13),
+            "pages": safe_int(pages)
         })
-
     return recommended_books
 
 # recommended_books=bookRecommendation(68)
@@ -72,10 +76,6 @@ def bookRecommendation(liked_book_id, top_k=5):
 # print("Recommended titles:")
 # for book in recommended_books:
 #     print("-", book["title"])
-
-
-books_df = pd.read_csv('./data/raw/books.csv')
-
 
 liked_book_id = 68  # "Perks of Being a Wallflower"
 # bookRecommendation(liked_book_id)
@@ -93,13 +93,13 @@ def getBookDetails(book_id):
     return title, authors, average_rating, description, genres, image_url, isbn13, pages
 
 
-
 def safe_int(value, default=0):
     try:
+        if pd.isna(value):
+            return default
         return int(value)
     except (ValueError, TypeError):
         return default
-
 
 @app.get("/recommendation-graph/{liked_book_id}")
 def createRecommendationGraph(
@@ -145,7 +145,7 @@ def createRecommendationGraph(
 
     source_id = book_id_to_node_id[liked_book_id]
 
-    recommended_books = bookRecommendation(liked_book_id)
+    recommended_books = bookRecommendation(liked_book_id, top_k, already_recommended)
 
     for book in recommended_books:
         book_id = book["book_id"]
@@ -188,7 +188,7 @@ def createRecommendationGraph(
                 book_id_to_node_id
             )
 
-    return nodes, links
+    return {"nodes": nodes, "links": links}
 # nodes, links = createRecommendationGraph(68)
 # print("Nodes:", nodes)
 # print("Links:", links)
