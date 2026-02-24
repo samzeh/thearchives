@@ -1,6 +1,9 @@
 import pickle
 import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
+from fastapi import FastAPI
+
+app = FastAPI()
 
 with open('./data/processed/artifacts.pkl', 'rb') as f:
     artifacts = pickle.load(f)
@@ -88,10 +91,12 @@ def safe_int(value, default=0):
     except (ValueError, TypeError):
         return default
 
+
+@app.get("/recommendation-graph/{liked_book_id}")
 def createRecommendationGraph(
-    liked_book_id,
-    depth=3,
-    top_k=5,
+    liked_book_id: int,
+    depth:int =3,
+    top_k:int=5,
     nodes=None,
     links=None,
     already_recommended=None,
@@ -175,7 +180,7 @@ def createRecommendationGraph(
             )
 
     return nodes, links
-nodes, links = createRecommendationGraph(68)
-print("Nodes:", nodes)
-print("Links:", links)
+# nodes, links = createRecommendationGraph(68)
+# print("Nodes:", nodes)
+# print("Links:", links)
 
