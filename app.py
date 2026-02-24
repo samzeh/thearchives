@@ -2,8 +2,18 @@ import pickle
 import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods= ["*"],
+    allow_headers=["*"],
+)
+
+
 
 with open('./data/processed/artifacts.pkl', 'rb') as f:
     artifacts = pickle.load(f)
