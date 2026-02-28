@@ -13,8 +13,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-
 with open('./data/processed/artifacts.pkl', 'rb') as f:
     artifacts = pickle.load(f)
 
