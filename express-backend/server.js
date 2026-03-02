@@ -12,7 +12,7 @@ app.get('/api/books/search', async (req, res) => {
 
     const result = await pool.query( 
       "SELECT * FROM books WHERE title % $1 OR title ILIKE '%' || $1 || '%' ORDER BY similarity(title, $1) DESC LIMIT $2", 
-      [q, 10]);
+      [q, 5]);
 
     res.json({ books: result.rows });
 
