@@ -1,4 +1,5 @@
 import pickle
+import math
 import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
 from fastapi import FastAPI
@@ -43,14 +44,14 @@ def bookRecommendation(liked_book_id, top_k=5, already_recommended=None):
   
     for i in top_indices:
         row = books_df[books_df['book_id'] == i+1]
-        authors = row['authors'].values[0]
+        authors = safe_text(row['authors'].values[0])
         average_rating = row['average_rating'].values[0]
-        description = row['description'].values[0]
-        genres = row['genres'].values[0]
-        image_url = row['image_url'].values[0]
+        description = safe_text(row['description'].values[0])
+        genres = safe_text(row['genres'].values[0])
+        image_url = safe_text(row['image_url'].values[0])
         isbn13 = row['isbn13'].values[0]
         pages = row['pages'].values[0]
-        title = row['title'].values[0]
+        title = safe_text(row['title'].values[0])
 
         recommended_books.append({
             "title": title,
@@ -80,14 +81,14 @@ liked_book_id = 68  # "Perks of Being a Wallflower"
 def getBookDetails(book_id):
 
     row = books_df[books_df['book_id'] == book_id]
-    authors = row['authors'].values[0]
-    average_rating = int(row['average_rating'].values[0].item())
-    description = row['description'].values[0]
-    genres = row['genres'].values[0]
-    image_url = row['image_url'].values[0]
-    isbn13 = int(row['isbn13'].values[0].item())
-    pages = int(row['pages'].values[0].item())
-    title = row['title'].values[0]
+    authors = safe_text(row['authors'].values[0])
+    average_rating = safe_int(row['average_rating'].values[0])
+    description = safe_text(row['description'].values[0])
+    genres = safe_text(row['genres'].values[0])
+    image_url = safe_text(row['image_url'].values[0])
+    isbn13 = safe_int(row['isbn13'].values[0])
+    pages = safe_int(row['pages'].values[0])
+    title = safe_text(row['title'].values[0])
     return title, authors, average_rating, description, genres, image_url, isbn13, pages
 
 
@@ -98,6 +99,33 @@ def safe_int(value, default=0):
         return int(value)
     except (ValueError, TypeError):
         return default
+
+
+def safe_text(value, default=''):
+    if pd.isna(value):
+        return default
+    return str(value)
+
+
+def sanitize_for_json(value):
+    if isinstance(value, dict):
+        return {k: sanitize_for_json(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [sanitize_for_json(v) for v in value]
+
+    if hasattr(value, 'item'):
+        try:
+            value = value.item()
+        except Exception:
+            pass
+
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
+
+    if pd.isna(value):
+        return None
+
+    return value
 
 @app.get("/recommendation-graph/{liked_book_id}")
 def createRecommendationGraph(
@@ -186,7 +214,7 @@ def createRecommendationGraph(
                 book_id_to_node_id
             )
 
-    return {"nodes": nodes, "links": links}
+    return sanitize_for_json({"nodes": nodes, "links": links})
 # nodes, links = createRecommendationGraph(68)
 # print("Nodes:", nodes)
 # print("Links:", links)
