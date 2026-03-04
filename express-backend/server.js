@@ -1,5 +1,5 @@
 import { auth, db } from './config/firebase.js';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { collection, getDocs, addDoc, deleteDoc, doc, updateDoc} from 'firebase/firestore';
 import express from 'express';
 import pool from './db.js';
@@ -50,5 +50,18 @@ app.post('/api/auth/signup', async (req, res) => {
   }
 
 });
+
+app.get('/api/auth/login', async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    return res.status(200).json({ message: 'Login successful', user: userCredential.user });
+  } catch (e) {
+    res.status(500).json({ error: e.message});
+  }
+})
 
 app.listen(3000);
